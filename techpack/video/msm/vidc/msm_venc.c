@@ -2577,7 +2577,19 @@ int msm_venc_set_intra_period(struct msm_vidc_inst *inst)
 				sizeof(adaptive_p_b_intra_period));
 
 	} else {
-		s_vpr_h(inst->sid, "%s: pframes: %d bframes: %d\n",
+		//ASUS_BSP+++
+		//Modify i-frame period for asus slow motion mode
+		if(intra_period.bframes == 0) {
+			if( intra_period.pframes >= 120 ) {
+				intra_period.pframes = 30;
+				s_vpr_e(inst->sid, "Modify pframe=%d bframe=%d\n",intra_period.pframes ,intra_period.bframes);
+			}
+		} else {
+			//Should fix it if b-frame is supported for H.264.
+			s_vpr_e(inst->sid,"WARNING: skip adjust i-frame period due to b-frame is activity.");
+		}
+		//ASUS_BSP---
+		s_vpr_e(inst->sid, "%s: pframes: %d bframes: %d\n",
 				__func__, intra_period.pframes,
 				intra_period.bframes);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
