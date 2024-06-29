@@ -138,6 +138,10 @@ struct dp_panel {
 
 	s64 fec_overhead_fp;
 
+	/* ASUS BSP Display +++ */
+	char *asus_vendor;
+	u32 asus_proc_codes;
+
 	int (*init)(struct dp_panel *dp_panel);
 	int (*deinit)(struct dp_panel *dp_panel, u32 flags);
 	int (*hw_cfg)(struct dp_panel *dp_panel, bool enable);
@@ -232,4 +236,17 @@ struct dp_panel *dp_panel_get(struct dp_panel_in *in);
 void dp_panel_put(struct dp_panel *dp_panel);
 void dp_panel_calc_tu_test(struct dp_tu_calc_input *in,
 		struct dp_vc_tu_mapping_table *tu_table);
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+bool dp_asus_validate_24_bpp(struct dp_panel *dp_panel);
+bool dp_asus_validate_mode(struct dp_panel *dp_panel, struct drm_display_mode *mode);
+bool dp_asus_validate_dp_version(struct dp_panel *dp_panel);
+void dp_asus_extract_id(struct dp_panel *dp_panel);
+#else
+static inline bool dp_asus_validate_24_bpp(struct dp_panel *dp_panel) { return false; }
+static inline bool dp_asus_validate_mode(struct dp_panel *dp_panel, struct drm_display_mode *mode) { return true; }
+static inline bool dp_asus_validate_dp_version(struct dp_panel *dp_panel);
+static inline void dp_asus_extract_id(struct dp_panel *dp_panel) { }
+#endif
+/* ASUS BSP Display --- */
 #endif /* _DP_PANEL_H_ */

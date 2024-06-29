@@ -16,6 +16,11 @@
 #include "dp_debug.h"
 #include "sde_dbg.h"
 
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+extern bool g_hpd;
+extern struct completion usb_host_complete1; // to sync usb host
+#endif
 
 #define ALTMODE_CONFIGURE_MASK (0x3f)
 #define ALTMODE_HPD_STATE_MASK (0x40)
@@ -27,6 +32,10 @@ struct dp_altmode_private {
 	struct dp_hpd_cb *dp_cb;
 	struct dp_altmode dp_altmode;
 	struct altmode_client *amclient;
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	struct altmode_client *amclient_bak;
+#endif
 	bool connected;
 };
 
@@ -139,10 +148,19 @@ static int dp_altmode_notify(void *priv, void *data, size_t len)
 			altmode->dp_altmode.base.hpd_high,
 			altmode->dp_altmode.base.hpd_irq);
 	DP_DEBUG("connected=%d\n", altmode->connected);
+	DP_LOG("pin=%d, hpd_high=%d, hpd_irq=%d\n",
+			pin, altmode->dp_altmode.base.hpd_high,
+			altmode->dp_altmode.base.hpd_irq);
 	SDE_EVT32_EXTERNAL(dp_data, port_index, orientation, pin, hpd_state,
 			altmode->dp_altmode.base.multi_func,
 			altmode->dp_altmode.base.hpd_high,
 			altmode->dp_altmode.base.hpd_irq, altmode->connected);
+
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	g_hpd = altmode->dp_altmode.base.hpd_high;
+#endif
+/* ASUS BSP Display --- */
 
 	if (!pin) {
 		/* Cable detach */
@@ -158,6 +176,15 @@ static int dp_altmode_notify(void *priv, void *data, size_t len)
 
 	/* Configure */
 	if (!altmode->connected) {
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+		if (!wait_for_completion_timeout(&usb_host_complete1, HZ * 3)) {
+			DP_LOG("usb host turn on timeout\n");
+			goto ack;
+		}
+#endif
+/* ASUS BSP Display --- */
+
 		altmode->connected = true;
 		altmode->dp_altmode.base.alt_mode_cfg_done = true;
 		altmode->forced_disconnect = false;
@@ -206,6 +233,12 @@ static void dp_altmode_register(void *priv)
 	struct altmode_client_data cd = {
 		.callback	= &dp_altmode_notify,
 	};
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	struct altmode_client_data ef = {
+		.callback	= &dp_altmode_notify,
+	};
+#endif
 
 	cd.name = "displayport";
 	cd.svid = USB_SID_DISPLAYPORT;
@@ -217,6 +250,21 @@ static void dp_altmode_register(void *priv)
 				PTR_ERR(altmode->amclient));
 	else
 		DP_DEBUG("success\n");
+
+/* ASUS BSP Display, register USB_SID_PD 0xFF00 +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	ef.name = "displayport_backup";
+	ef.svid = USB_SID_PD;
+	ef.priv = altmode;
+
+	altmode->amclient_bak = altmode_register_client(altmode->dev, &ef);
+	if (IS_ERR_OR_NULL(altmode->amclient_bak))
+		DP_ERR("failed to register as client_bak: %d\n",
+				PTR_ERR(altmode->amclient_bak));
+	else
+		DP_DEBUG("success\n");
+#endif
+/* ASUS BSP Display, register USB_SID_PD 0xFF00 --- */
 }
 
 static int dp_altmode_simulate_connect(struct dp_hpd *dp_hpd, bool hpd)
@@ -311,6 +359,10 @@ void dp_altmode_put(struct dp_hpd *dp_hpd)
 			dp_altmode);
 
 	altmode_deregister_client(altmode->amclient);
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	altmode_deregister_client(altmode->amclient_bak);
+#endif
 	altmode_deregister_notifier(altmode->dev, altmode);
 
 	kfree(altmode);

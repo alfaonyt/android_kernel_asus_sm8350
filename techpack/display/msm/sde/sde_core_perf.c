@@ -24,6 +24,15 @@
 #include "sde_hw_catalog.h"
 #include "sde_core_perf.h"
 
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+#include <linux/proc_fs.h>
+
+#define PERF_MODE            "perf_mode"
+#define ASUS_BSP_DISPLAY
+
+u32 asus_perf_mode = 0;
+#endif
+
 #define SDE_PERF_MODE_STRING_SIZE	128
 #define SDE_PERF_THRESHOLD_HIGH_MIN     12800000
 
@@ -61,6 +70,50 @@ enum sde_perf_vote_mode {
 	DISP_RSC_MODE,
 	DISP_RSC_PRIMARY_MODE,
 };
+
+#ifdef ASUS_BSP_DISPLAY
+void asus_check_perf_mode(struct sde_core_perf *perf)
+{
+	static u32 old_perf_mode = 0;
+	struct sde_perf_cfg *cfg = &perf->catalog->perf;
+	int ret = 0;
+
+	if (asus_perf_mode == old_perf_mode)
+		return;
+
+	old_perf_mode = asus_perf_mode;
+	if (asus_perf_mode == SDE_PERF_MODE_FIXED) {
+		DRM_INFO("fix performance mode\n");
+	} else if (asus_perf_mode == SDE_PERF_MODE_MINIMUM) {
+		/* run the driver with max clk and BW vote */
+		perf->perf_tune.min_core_clk = perf->max_core_clk_rate;
+		perf->perf_tune.min_bus_vote =
+				(u64) cfg->max_bw_high * 1000;
+
+		ret = sde_power_clk_set_rate(perf->phandle,
+				perf->clk_name, perf->max_core_clk_rate);
+		if (ret) {
+			SDE_ERROR("failed to set %s clock rate %llu\n",
+					perf->clk_name,
+					perf->max_core_clk_rate);
+
+			perf->perf_tune.min_core_clk = 0;
+			perf->perf_tune.min_bus_vote = 0;
+			old_perf_mode = SDE_PERF_MODE_NORMAL;
+		} else {
+			DRM_INFO("minimum performance mode\n");
+		}
+		SDE_EVT32(perf->max_core_clk_rate, ret);
+	} else if (asus_perf_mode == SDE_PERF_MODE_NORMAL) {
+		/* reset the perf tune params to 0 */
+		perf->perf_tune.min_core_clk = 0;
+		perf->perf_tune.min_bus_vote = 0;
+		DRM_INFO("normal performance mode\n");
+	}
+	perf->perf_tune.mode = old_perf_mode;
+	perf->perf_tune.mode_changed = true;
+}
+#endif
 
 static struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
@@ -128,6 +181,10 @@ static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
 
 	perf->core_clk_rate =
 			sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_CLK);
+
+#ifdef ASUS_BSP_DISPLAY
+	asus_check_perf_mode(&kms->perf);
+#endif
 
 	if (!sde_cstate->bw_control) {
 		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
@@ -1249,6 +1306,58 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 }
 #endif
 
+#ifdef ASUS_BSP_DISPLAY
+static ssize_t perf_mode_write(struct file *filp, const char *buff, size_t len, loff_t *off)
+{
+	u32 perf_mode = 0;
+	char buf[10];
+
+	if (len >= sizeof(buf))
+		return -EFAULT;
+
+	if (copy_from_user(buf, buff, len))
+		return -EFAULT;
+
+	buf[len] = 0;	/* end of string */
+
+	if (kstrtouint(buf, 0, &perf_mode))
+		return -EFAULT;
+
+	if (perf_mode >= SDE_PERF_MODE_MAX)
+		return -EFAULT;
+
+	asus_perf_mode = perf_mode;
+
+	return len;
+}
+
+static ssize_t perf_mode_read(struct file *file, char __user *buf,
+							 size_t count, loff_t *ppos)
+{
+	int len = 0;
+	ssize_t ret = 0;
+	char *buff;
+
+	if (*ppos)
+		return 0;
+
+	buff = kzalloc(100, GFP_KERNEL);
+	if (!buff)
+		return -ENOMEM;
+
+	len += sprintf(buff, "%d\n", asus_perf_mode);
+	ret = simple_read_from_buffer(buf, count, ppos, buff, len);
+	kfree(buff);
+
+	return ret;
+}
+
+static struct file_operations perf_mode_ops = {
+	.write = perf_mode_write,
+	.read  = perf_mode_read,
+};
+#endif
+
 void sde_core_perf_destroy(struct sde_core_perf *perf)
 {
 	if (!perf) {
@@ -1299,6 +1408,10 @@ int sde_core_perf_init(struct sde_core_perf *perf,
 		perf->max_core_clk_rate = SDE_PERF_DEFAULT_MAX_CORE_CLK_RATE;
 	}
 	perf->idle_sys_cache_enabled = true;
+
+#ifdef ASUS_BSP_DISPLAY
+	proc_create(PERF_MODE, 0666, NULL, &perf_mode_ops);
+#endif
 
 	return 0;
 

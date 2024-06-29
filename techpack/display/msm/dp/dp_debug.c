@@ -18,6 +18,13 @@
 
 #define DEBUG_NAME "drm_dp"
 
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+#include <linux/proc_fs.h>
+#define HDCP_DISABLE "driver/hdcp_disable"
+struct dp_debug *asus_debug;
+#endif
+/* ASUS BSP Display --- */
 struct dp_debug_private {
 	struct dentry *root;
 	u8 *edid;
@@ -1889,6 +1896,83 @@ static const struct file_operations hdcp_fops = {
 	.read = dp_debug_read_hdcp,
 };
 
+/* ASUS BSP Display +++ */
+static ssize_t dp_debug_read_aux_err(struct file *file,
+		char __user *user_buff, size_t count, loff_t *ppos)
+{
+	struct dp_debug_private *debug = file->private_data;
+	char buf[SZ_8];
+	u32 len = 0;
+
+	if (!debug)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	len += snprintf(buf, SZ_8, "%d\n", debug->dp_debug.aux_err);
+
+	len = min_t(size_t, count, len);
+	if (copy_to_user(user_buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	return len;
+}
+
+static const struct file_operations aux_err_fops = {
+	.open = simple_open,
+	.read = dp_debug_read_aux_err,
+};
+
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+static ssize_t hdcp_disable_write(struct file *filp, const char *buff, size_t len, loff_t *off)
+{
+	char messages[256];
+	memset(messages, 0, sizeof(messages));
+
+	if (len > 256)
+		len = 256;
+	if (copy_from_user(messages, buff, len))
+		return -EFAULT;
+
+	DP_LOG("set hdcp_disable = %s\n", messages);
+	if (strncmp(messages, "1", 1) == 0)
+		asus_debug->hdcp_disabled = true;
+	else if (strncmp(messages, "0", 1) == 0)
+		asus_debug->hdcp_disabled = false;
+
+	return len;
+}
+
+static ssize_t hdcp_disable_read(struct file *file, char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	int len = 0;
+	ssize_t ret = 0;
+	char *buff;
+
+	buff = kmalloc(100, GFP_KERNEL);
+	if (!buff)
+		return -ENOMEM;
+
+	DP_LOG("hdcp_disable is %d\n", asus_debug->hdcp_disabled);
+
+	len += sprintf(buff, "%d\n", asus_debug->hdcp_disabled);
+	ret = simple_read_from_buffer(buf, count, ppos, buff, len);
+	kfree(buff);
+
+	return ret;
+}
+
+static struct file_operations hdcp_disable_ops = {
+	.write = hdcp_disable_write,
+	.read = hdcp_disable_read,
+};
+#endif
+/* ASUS BSP Display --- */
+
 static int dp_debug_init_mst(struct dp_debug_private *debug, struct dentry *dir)
 {
 	int rc = 0;
@@ -2124,6 +2208,16 @@ static int dp_debug_init_status(struct dp_debug_private *debug,
 			DEBUG_NAME, rc);
 		return rc;
 	}
+
+	/* ASUS BSP Display +++ */
+	file = debugfs_create_file("aux_err", 0644, dir, debug, &aux_err_fops);
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		DP_ERR("[%s] debugfs aux_err failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+		return rc;
+	}
+	/* ASUS BSP Display --- */
 
 	return rc;
 }
@@ -2487,6 +2581,13 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	mutex_init(&dp_debug->dp_mst_connector_list.lock);
 
 	dp_debug->max_pclk_khz = debug->parser->max_pclk_khz;
+
+	/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	proc_create(HDCP_DISABLE, 0664, NULL, &hdcp_disable_ops);
+	asus_debug = dp_debug;
+#endif
+	/* ASUS BSP Display --- */
 
 	return dp_debug;
 error:

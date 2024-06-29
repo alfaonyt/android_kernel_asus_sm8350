@@ -23,6 +23,9 @@
 #include "sde_trace.h"
 #include <drm/drm_atomic_uapi.h>
 
+/* ASUS BSP Display +++ */
+#include "../dsi/dsi_anakin.h"
+
 #define MULTIPLE_CONN_DETECTED(x) (x > 1)
 
 struct msm_commit {
@@ -55,7 +58,7 @@ static inline bool _msm_seamless_for_crtc(struct drm_device *dev,
 	if (msm_is_mode_seamless_dms(&crtc_state->adjusted_mode) && !enable)
 		return true;
 
-	if (!crtc_state->mode_changed && crtc_state->connectors_changed && crtc_state->active) {
+	if (!crtc_state->mode_changed && crtc_state->connectors_changed) {
 		for_each_old_connector_in_state(state, connector,
 				conn_state, i) {
 			if ((conn_state->crtc == crtc_state->crtc) ||
@@ -281,9 +284,6 @@ msm_crtc_set_mode(struct drm_device *dev, struct drm_atomic_state *old_state)
 		new_crtc_state = connector->state->crtc->state;
 		mode = &new_crtc_state->mode;
 		adjusted_mode = &new_crtc_state->adjusted_mode;
-
-		if (!new_crtc_state->active)
-			continue;
 
 		if (!new_crtc_state->mode_changed &&
 				new_crtc_state->connectors_changed) {
@@ -540,6 +540,10 @@ static void complete_commit(struct msm_commit *c)
 static void _msm_drm_commit_work_cb(struct kthread_work *work)
 {
 	struct msm_commit *commit = NULL;
+	/* ASUS BSP Display +++ */
+	bool commit_for_fod_spot = false;
+	bool report_fod_spot_disappear = false;
+	/* ASUS BSP Display --- */
 
 	if (!work) {
 		DRM_ERROR("%s: Invalid commit work data!\n", __func__);
@@ -548,9 +552,23 @@ static void _msm_drm_commit_work_cb(struct kthread_work *work)
 
 	commit = container_of(work, struct msm_commit, commit_work);
 
+	/* ASUS BSP Display +++ */
+	commit_for_fod_spot = anakin_atomic_get_spot_status(0);
+	report_fod_spot_disappear = anakin_atomic_get_spot_status(1);
+	/* ASUS BSP Display +++ */
+
 	SDE_ATRACE_BEGIN("complete_commit");
 	complete_commit(commit);
 	SDE_ATRACE_END("complete_commit");
+
+	/* ASUS BSP Display +++ */
+	if (report_fod_spot_disappear)
+		anakin_atomic_set_spot_status(1);
+
+	if (commit_for_fod_spot)
+		anakin_atomic_set_spot_status(0);
+	/* ASUS BSP Display --- */
+
 }
 
 static struct msm_commit *commit_init(struct drm_atomic_state *state,

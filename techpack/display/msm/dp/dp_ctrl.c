@@ -668,6 +668,13 @@ static void dp_ctrl_select_training_pattern(struct dp_ctrl_private *ctrl,
 	else
 		pattern = DP_TRAINING_PATTERN_2;
 
+// ASUS BSP Display +++
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	if (dp_asus_validate_dp_version(ctrl->panel) && drm_dp_tps4_supported(ctrl->panel->dpcd)) {
+		pattern = DP_TRAINING_PATTERN_3;
+	}
+#endif
+
 	if (!downgrade)
 		goto end;
 

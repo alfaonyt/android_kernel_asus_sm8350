@@ -25,6 +25,49 @@ enum data_block_types {
 	USE_EXTENDED_TAG
 };
 
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+// fix TT#263415
+static void sde_edid_asus_fps_allow(struct drm_connector *connector)
+{
+	struct drm_display_mode *mode;
+
+	connector->under_60hz_allowed = false;
+
+	list_for_each_entry(mode, &connector->probed_modes, head) {
+		if (mode->vrefresh >= 60)
+			return;
+	}
+
+	connector->under_60hz_allowed = true;
+	return;
+}
+
+// fix TT#260647
+static void sde_edid_asus_wide_aspect_allow(struct drm_connector *connector)
+{
+	struct drm_display_mode *mode;
+	int ratio = 0;
+	int vref = 1080;
+	connector->wide_aspect_allowed = false;
+
+	list_for_each_entry(mode, &connector->probed_modes, head) {
+		ratio = mode->hdisplay/mode->vdisplay;
+
+		if ((ratio >= 2) && (mode->vrefresh >= 60) &&
+				(mode->vdisplay >= vref) && (mode->hdisplay >= 3000))
+			goto exit;
+	}
+
+	return;
+
+exit:
+	connector->wide_aspect_allowed = true;
+	return;
+}
+#endif
+/* ASUS BSP Display --- */
+
 static u8 *sde_find_edid_extension(struct edid *edid, int ext_id)
 {
 	u8 *edid_ext = NULL;
@@ -537,6 +580,12 @@ int _sde_edid_update_modes(struct drm_connector *connector,
 		_sde_edid_update_dc_modes(connector, edid_ctrl);
 		sde_edid_parse_extended_blk_info(connector,
 				edid_ctrl->edid);
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+		sde_edid_asus_fps_allow(connector);
+		sde_edid_asus_wide_aspect_allow(connector);
+#endif
+/* ASUS BSP Display --- */
 		SDE_EDID_DEBUG("%s -", __func__);
 		return rc;
 	}

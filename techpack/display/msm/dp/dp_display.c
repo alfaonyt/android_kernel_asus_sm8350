@@ -67,6 +67,23 @@ enum dp_display_states {
 	DP_STATE_TUI_ACTIVE             = BIT(11),
 };
 
+/* ASUS BSP Display +++ */
+// for skip hdcp on unlock device
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+extern char g_verified_boot_state[20];
+extern char g_unlock[2];
+
+static bool is_unlock(void)
+{
+	static const char unlock_state[] = "orange";
+	static const char unlock_param[] = "Y";
+
+	return (!strncmp(g_verified_boot_state, unlock_state, sizeof(unlock_state))
+		|| !strncmp(g_unlock, unlock_param, sizeof(unlock_param)));
+}
+#endif
+/* ASUS BSP Display --- */
+
 static char *dp_display_state_name(enum dp_display_states state)
 {
 	static char buf[SZ_1K];
@@ -1212,6 +1229,9 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	rc = dp->panel->read_sink_caps(dp->panel,
 			dp->dp_display.base_connector, dp->hpd->multi_func);
+
+	/* ASUS BSP Display +++ */
+	dp->debug->aux_err = true;
 	/*
 	 * ETIMEDOUT --> cable may have been removed
 	 * ENOTCONN --> no downstream device connected
@@ -1332,6 +1352,9 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 	mutex_unlock(&dp->session_lock);
 
 	dp->panel->video_test = false;
+
+	/* ASUS BSP Display +++ */
+	dp->debug->aux_err = false;
 
 	return rc;
 }
@@ -2033,6 +2056,15 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 
 	dp->cached_connector_status = connector_status_disconnected;
 	dp->tot_dsc_blks_in_use = 0;
+
+/* ASUS BSP Display +++ */
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	if (is_unlock()) {
+		DP_LOG("Disable HDCP on unlock device");
+		hdcp_disabled = 1;
+	}
+#endif
+/* ASUS BSP Display --- */
 
 	dp->debug->hdcp_disabled = hdcp_disabled;
 	dp_display_update_hdcp_status(dp, true);
@@ -2891,6 +2923,11 @@ static enum drm_mode_status dp_display_validate_mode(
 			mode->picture_aspect_ratio != debug->aspect_ratio))
 		goto end;
 
+	/* ASUS BSP Display +++ */
+	if (!dp_asus_validate_mode(dp_panel, mode))
+		goto end;
+	/* ASUS BSP Display --- */
+
 	mode_status = MODE_OK;
 end:
 	mutex_unlock(&dp->session_lock);
@@ -3093,6 +3130,8 @@ static int dp_display_init_aux_switch(struct dp_display_private *dp)
 	int rc = 0;
 	const char *phandle = "qcom,dp-aux-switch";
 	struct notifier_block nb;
+
+	return rc; /* ASUS BSP Display, add for DisplayPort +++ */
 
 	if (!dp->pdev->dev.of_node) {
 		DP_ERR("cannot find dev.of_node\n");
