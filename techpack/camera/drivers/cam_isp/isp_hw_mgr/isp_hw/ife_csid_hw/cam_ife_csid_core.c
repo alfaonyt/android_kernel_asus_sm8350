@@ -4654,6 +4654,10 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 
 }
 
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+extern uint8_t g_cam_csi_check;  //ASUS_BSP Bryant "Add for camera csi debug"
+#endif
+
 static int cam_csid_get_evt_payload(
 	struct cam_ife_csid_hw *csid_hw,
 	struct cam_csid_evt_payload **evt_payload)
@@ -5015,6 +5019,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 				csid_hw->hw_intf->hw_idx,
 				soc_info->applied_src_clk_rate);
 			fatal_err_detected = true;
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT			
+			g_cam_csi_check = CSID_LAN0_OVERFLOW;
+#endif
 			goto handle_fatal_error;
 		}
 		if (irq_status[CAM_IFE_CSID_IRQ_REG_RX] &
@@ -5024,6 +5031,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 				csid_hw->hw_intf->hw_idx,
 				soc_info->applied_src_clk_rate);
 			fatal_err_detected = true;
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT			
+			g_cam_csi_check = CSID_LAN1_OVERFLOW;
+#endif
 			goto handle_fatal_error;
 		}
 		if (irq_status[CAM_IFE_CSID_IRQ_REG_RX] &
@@ -5033,6 +5043,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 				csid_hw->hw_intf->hw_idx,
 				soc_info->applied_src_clk_rate);
 			fatal_err_detected = true;
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT			
+			g_cam_csi_check = CSID_LAN2_OVERFLOW;
+#endif
 			goto handle_fatal_error;
 		}
 		if (irq_status[CAM_IFE_CSID_IRQ_REG_RX] &
@@ -5042,6 +5055,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 				csid_hw->hw_intf->hw_idx,
 				soc_info->applied_src_clk_rate);
 			fatal_err_detected = true;
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT			
+			g_cam_csi_check = CSID_LAN3_OVERFLOW;
+#endif
 			goto handle_fatal_error;
 		}
 		if (irq_status[CAM_IFE_CSID_IRQ_REG_RX] &
@@ -5050,6 +5066,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 				"CSID:%d RX_ERROR_TPG_FIFO_OVERFLOW: Backpressure from IFE",
 				csid_hw->hw_intf->hw_idx);
 			fatal_err_detected = true;
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT			
+			g_cam_csi_check = CSID_TG_OVERFLOW;
+#endif
 			event_type |= CAM_ISP_HW_ERROR_CSID_OVERFLOW;
 			goto handle_fatal_error;
 		}
@@ -5075,6 +5094,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d CPHY_PH_CRC CPHY: Pkt Hdr CRC mismatch",
 				csid_hw->hw_intf->hw_idx);
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT				 
+			g_cam_csi_check = CSID_CPHY_PH_CRC;
+#endif
 			fatal_err_detected = true;
 			goto handle_fatal_error;
 		}
@@ -5083,6 +5105,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d ERROR_CRC CPHY: Long pkt payload CRC mismatch",
 				csid_hw->hw_intf->hw_idx);
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT				 
+			g_cam_csi_check = CSID_ERROR_CRC;
+#endif
 			csid_hw->error_irq_count++;
 			non_fatal_detected = true;
 		}
@@ -5091,6 +5116,9 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CSID:%d ERROR_ECC: Dphy pkt hdr errors unrecoverable",
 				csid_hw->hw_intf->hw_idx);
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT				 
+			g_cam_csi_check = CSID_ERROR_ECC;
+#endif
 			fatal_err_detected = true;
 			goto handle_fatal_error;
 		}

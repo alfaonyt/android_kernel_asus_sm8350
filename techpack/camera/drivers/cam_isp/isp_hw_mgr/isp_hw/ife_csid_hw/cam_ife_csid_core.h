@@ -99,6 +99,23 @@ enum cam_csid_path_timestamp_stb_sel {
 	CSID_TIMESTAMP_STB_MAX,
 };
 
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+//ASUS_BSP +++ "Add for camera csi debug"
+/* enum cam_csid_error_state*/
+enum cam_csid_error_state {
+	DEFAUT = 0,
+	CSID_LAN0_OVERFLOW = 1,
+	CSID_LAN1_OVERFLOW = 2,
+	CSID_LAN2_OVERFLOW = 3,
+	CSID_LAN3_OVERFLOW = 4,
+	CSID_TG_OVERFLOW = 5,
+	CSID_CPHY_PH_CRC = 6,
+	CSID_ERROR_CRC = 7,
+	CSID_ERROR_ECC = 8,
+};
+//ASUS_BSP ---"Add for camera csi debug"
+#endif
+
 /**
  * enum cam_ife_pix_path_res_id - Specify the csid patch
  */

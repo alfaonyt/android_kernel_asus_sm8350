@@ -9,6 +9,10 @@
 #include "cam_req_mgr_workq.h"
 #include "cam_common_util.h"
 
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+extern uint8_t g_cam_cci_check;  //ASUS_BSP "Add for camera cci debug"
+#endif
+
 static int32_t cam_cci_convert_type_to_num_bytes(
 	enum camera_sensor_i2c_type type)
 {
@@ -1489,6 +1493,13 @@ static int32_t cam_cci_i2c_write(struct v4l2_subdev *sd,
 	}
 
 ERROR:
+#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+	if (rc < 0) {
+		CAM_ERR(CAM_CCI, "cam_cci_i2c_write failed rc:%d", rc);
+		g_cam_cci_check=1;//ASUS_BSP Jason "Add for camera cci debug"
+	}
+#endif
+
 	spin_lock(&cci_dev->cci_master_info[master].freq_cnt_lock);
 	if (--cci_dev->cci_master_info[master].freq_ref_cnt == 0)
 		up(&cci_dev->cci_master_info[master].master_sem);
@@ -1721,6 +1732,9 @@ static int32_t cam_cci_read_bytes(struct v4l2_subdev *sd,
 		}
 		if (rc) {
 			CAM_ERR(CAM_CCI, "Failed to read rc:%d", rc);
+			#if defined ASUS_ZS673KS_PROJECT || defined ASUS_PICASSO_PROJECT
+			g_cam_cci_check=1;//ASUS_BSP "Add for camera cci debug"
+			#endif
 			goto ERROR;
 		}
 
