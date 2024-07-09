@@ -1,5 +1,9 @@
 
 # +++ ASUS_BSP : add for asus dtbo
+ifeq ($(CONFIG_MACH_ASUS_ZS673KS), y)
+ASUS_BUILD_PROJECT := ZS673KS
+endif
+
 $(warning [Build] build dtbo CONFIG_BUILD_ARM64_DT_OVERLAY = $(CONFIG_BUILD_ARM64_DT_OVERLAY))
 $(warning [Build] build dtbo ASUS_BUILD_PROJECT = $(ASUS_BUILD_PROJECT))
 $(warning [Build] build dtbo CONFIG_ARCH_QTI_VM = $(CONFIG_ARCH_QTI_VM))
